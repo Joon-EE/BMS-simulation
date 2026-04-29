@@ -2,16 +2,15 @@ import matplotlib.pyplot as plt
 
 # Simulation settings
 battery_capacity_ah = 2.0
-load_currents = [0.5, 1.0, 1.5, 3.0]  # 일부러 큰 값 포함
+load_currents = [0.5, 1.0, 1.5, 3.0]
 initial_voltage = 4.2
 cutoff_voltage = 3.0
 time_step_min = 1
 
-# 🔴 Internal resistance (Ohms)
 internal_resistance = 0.1
-
-# 🔴 Overcurrent limit
 max_current_limit = 2.0
+
+results = []
 
 for load_current_a in load_currents:
 
@@ -19,54 +18,62 @@ for load_current_a in load_currents:
     voltage_values = []
 
     elapsed_time = 0
-    soc = 1.0  # state of charge (1 = 100%)
+    soc = 1.0
 
-    cutoff_reason = None
     cutoff_time = None
+    cutoff_reason = None
+
+    energy_used = 0
 
     while True:
 
-        # 🔴 OCV 간단 모델 (SOC 기반)
         ocv = cutoff_voltage + (initial_voltage - cutoff_voltage) * soc
-
-        # 🔴 실제 전압 (IR drop 포함)
         terminal_voltage = ocv - load_current_a * internal_resistance
 
         time_minutes.append(elapsed_time)
         voltage_values.append(terminal_voltage)
 
-        # 🔴 Overcurrent protection
+        #Energy Calculation
+        energy_used += load_current_a * time_step_min
+
+        # Overcurrent protection
         if load_current_a > max_current_limit:
             cutoff_reason = "Overcurrent"
             cutoff_time = elapsed_time
-            print(f"[{load_current_a}A] Overcurrent cutoff at {cutoff_time} min")
             break
 
-        # 🔴 Undervoltage protection
+        # Undervoltage protection
         if terminal_voltage <= cutoff_voltage:
             cutoff_reason = "Undervoltage"
             cutoff_time = elapsed_time
-            print(f"[{load_current_a}A] Undervoltage cutoff at {cutoff_time} min")
             break
 
-        # 🔴 SOC 감소 (에너지 소모)
+        # Decrease in SOC
         soc -= (load_current_a * time_step_min) / (battery_capacity_ah * 60)
 
         elapsed_time += time_step_min
 
-        # 안전장치
         if soc <= 0:
             break
 
-    # 그래프
-    plt.plot(time_minutes, voltage_values, label=f"{load_current_a}A ({cutoff_reason})")
+    #Efficiency Calculation
+    total_energy = battery_capacity_ah * 60
+    efficiency = energy_used / total_energy
 
-# cutoff 기준선
+    results.append((load_current_a, cutoff_time, efficiency, cutoff_reason))
+
+    plt.plot(time_minutes, voltage_values, label=f"{load_current_a}A")
+
+#Print the results
+print("\n=== Performance Summary ===")
+for load, time, eff, reason in results:
+    print(f"{load}A | Time: {time} min | Efficiency: {eff:.2f} | Reason: {reason}")
+
 plt.axhline(y=cutoff_voltage, linestyle='--', label="Cutoff Voltage")
 
 plt.xlabel("Time (minutes)")
 plt.ylabel("Voltage (V)")
-plt.title("Battery Simulation with Protection & IR Model")
+plt.title("Battery Simulation with Performance Analysis")
 plt.grid(True)
 plt.legend()
 
