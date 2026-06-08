@@ -144,7 +144,7 @@ This prevents rapid ON/OFF switching near a single temperature threshold.
 
 ```bash
 
-python battery\_sim.py
+python battery_sim.py
 
 ```
 
